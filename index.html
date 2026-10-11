@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tuff Launcher</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #14181b; --panel: #1e2327; --panel2: #262d32; --border: #333c42;
+    --text: #e8edf0; --muted: #9aa7ae; --accent: #4ea1ff; --accent2: #2f6fb3; --ok: #4cd08a; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .container { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+  .logo { font-size: 1.35rem; font-weight: 600; margin: 0; }
+  .nav { display: flex; gap: 6px; }
+  .nav-btn { background: var(--panel); color: var(--muted); border: 1px solid var(--border); padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; font: inherit; font-size: .9rem; }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+  .section { display: none; } .section.active { display: block; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .section-header h2 { margin: 0; font-size: 1.15rem; }
+  .badge { background: var(--panel2); border: 1px solid var(--border); color: var(--accent); padding: 2px 10px; border-radius: 999px; font-size: .8rem; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 10px; font-size: 1rem; }
+  .card p { color: var(--muted); line-height: 1.5; margin: 0 0 12px; font-size: .92rem; }
+  .link-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn { display: inline-block; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+    text-decoration: none; font: inherit; font-size: .9rem; cursor: pointer; color: var(--text); background: var(--panel2); }
+  .btn:hover { filter: brightness(1.15); }
+  .btn-primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .btn[disabled] { opacity: .5; pointer-events: none; }
+  .notes ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: .9rem; line-height: 1.6; }
+  .version-info { color: var(--accent) !important; font-weight: 500; }
+  .archive-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .archive-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    cursor: pointer; font: inherit; text-align: left; }
+  .archive-item:hover { border-color: var(--accent); }
+  .archive-item .type { font-size: .72rem; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 999px; }
+  label.field { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
+  input[type=text] { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; margin-top: 10px; }
+
+  /* loading / status */
+  #status { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(460px, 92vw);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+    display: none; z-index: 50; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+  #status.show { display: block; }
+  #status .msg { font-size: .88rem; margin-bottom: 8px; word-break: break-word; }
+  #status .msg.err { color: var(--err); }
+  #bar { height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+  #bar > div { height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  #status .actions { margin-top: 10px; display: none; gap: 8px; }
+  #status.error .actions { display: flex; }
+
+  /* game overlay */
+  #game { position: fixed; inset: 0; background: #000; display: none; z-index: 100; }
+  #game.show { display: block; }
+  #game iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+  #gameBar { position: absolute; top: 6px; left: 6px; z-index: 2; display: flex; gap: 6px; opacity: .25; transition: opacity .2s; }
+  #gameBar:hover, #gameBar:focus-within { opacity: 1; }
+  #gameBar button { background: rgba(20,24,27,.9); color: #fff; border: 1px solid #444; border-radius: 6px;
+    padding: 5px 10px; font: inherit; font-size: .78rem; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <h1 class="logo">Dicestack88's Tuff Launcher</h1>
+    <nav class="nav">
+      <button class="nav-btn active" data-section="latest">Latest</button>
+      <button class="nav-btn" data-section="archive">Archive</button>
+      <button class="nav-btn" data-section="support">Support</button>
+      <button class="nav-btn" data-section="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="latest" class="section active">
+      <div class="section-header"><h2>Latest Build</h2><span class="badge">1.1UT15</span></div>
+
+      <div class="card">
+        <h3>Play Online</h3>
+        <div class="link-group">
+          <button class="btn btn-primary" data-play="1_1UT15/WASM/">Play WASM Here</button>
+          <button class="btn" data-play="1_1UT15/JS/">Play JS Here</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Downloads</h3>
+        <div class="link-group">
+          <a class="btn btn-primary" data-file="1_1UT15/WASM/Tuff_Client_Offline_WASM.html" target="_blank" rel="noopener">Download WASM Offline</a>
+          <a class="btn" data-file="1_1UT15/JS/Tuff_Client_JS.html" target="_blank" rel="noopener">Download JS Offline</a>
+          <a class="btn" data-file="1_1UT15/WASM/WASM.zip" target="_blank" rel="noopener">Download WASM Web</a>
+          <a class="btn" data-file="1_1UT15/JS/JS.zip" target="_blank" rel="noopener">Download JS Web</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Other TuffClient Info</h3>
+        <div class="link-group">
+          <a href="https://tuffclient.com" target="_blank" rel="noopener" class="btn">TuffClient Website</a>
+          <a href="https://github.com/TuffNetwork/Tuff-Client-Builds/releases/tag/1.1UT15" target="_blank" rel="noopener" class="btn">GitHub Releases</a>
+          <a href="https://github.com/TuffNetwork/tufftest/blob/v2/ModDocs.md" target="_blank" rel="noopener" class="btn">Tuff Mod Docs</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>TuffX+</h3>
+        <p>TuffX+ (TuffXPlus) is the plugin required to enable modern features such as Below Y0, ViaBlocks, and more on the latest TuffClient 1.1UT builds.</p>
+        <div class="link-group">
+          <a href="https://modrinth.com/plugin/tuffxplus" target="_blank" rel="noopener" class="btn btn-primary">Get TuffX+ Plugin</a>
+          <a href="https://github.com/TuffNetwork/TuffXPlus/releases" target="_blank" rel="noopener" class="btn">TuffX+ GitHub Releases</a>
+        </div>
+      </div>
+
+      <div class="card notes">
+        <h3>Release Notes</h3>
+        <p class="version-info">Version 1.1UT15 - April 30, 2026</p>
+        <ul>
+          <li>Fixed "Invalid Payload Capacity" error on some servers</li>
+          <li>Fixed loading screen error on JS Web Runtime</li>
+          <li>Made rendering optimizations</li>
+          <li>Implemented ViaBlocks chunk processing queue and integrated with y0 queue</li>
+          <li>Organized and optimized ViaBlocks predictor a bit</li>
+          <li>Fixed most ViaBlocks collisions</li>
+          <li>Fixed some ViaBlocks rendering and selection boxes</li>
+          <li>Fixed version number with "Minecraft Style GUI" enabled</li>
+          <li>Fixed build issues</li>
+          <li>Disabled TabComplete by default until stable</li>
+          <li>Fixed some completion issues with TabComplete</li>
+          <li>Cleaned up Minimap and module code</li>
+          <li>Fixed Tall Seagrass and Lapis Ore with WAILA</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="archive" class="section">
+      <div class="section-header"><h2>Archived Builds</h2></div>
+      <div class="card"><div class="archive-list" id="archiveList"></div></div>
+    </section>
+
+    <section id="support" class="section">
+      <div class="section-header"><h2>Support</h2></div>
+      <div class="card">
+        <h3>Having Issues?</h3>
+        <p>If you're experiencing lag, try adjusting your graphics settings and lowering your render distance.</p>
+        <p>If you're experiencing crashes, first try closing extra tabs. If crashes continue, try clearing your browser cookies and lowering your render distance.</p>
+        <p>If you continue to have issues, ask in our Discord.</p>
+        <div class="link-group">
+          <a href="https://support.google.com/accounts/answer/32050?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener" class="btn">Clear Cookies Guide</a>
+          <a href="https://discord.gg/dGSkF3wvqX" target="_blank" rel="noopener" class="btn">Join Discord</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Report Bugs</h3>
+        <p>Found a bug? Create an issue on GitHub.</p>
+        <a href="https://github.com/TuffNetwork/Tuff-Client-Builds/issues/new?template=bug.yml" target="_blank" rel="noopener" class="btn">Create Issue</a>
+      </div>
+      <div class="card">
+        <h3>Self-Hosting</h3>
+        <p>Want to host your own instance?</p>
+        <a href="https://github.com/TuffNetwork/tufftest" target="_blank" rel="noopener" class="btn">View on GitHub</a>
+      </div>
+    </section>
+
+    <section id="settings" class="section">
+      <div class="section-header"><h2>Settings</h2></div>
+      <div class="card">
+        <h3>Build source</h3>
+        <p>Where the launcher fetches builds from when they aren't embedded in this file. Must be a host that sends CORS headers (GitHub Pages does).</p>
+        <label class="field" for="baseInput">Base URL</label>
+        <input type="text" id="baseInput" spellcheck="false" />
+        <div class="link-group" style="margin-top:12px">
+          <button class="btn btn-primary" id="saveBase">Save</button>
+          <button class="btn" id="resetBase">Reset to default</button>
+        </div>
+        <label class="check"><input type="checkbox" id="replaceMode" /> Replace this page with the client instead of using an overlay</label>
+      </div>
+      <div class="card">
+        <h3>Embedded builds</h3>
+        <p id="embeddedInfo"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="status"><div class="msg" id="statusMsg"></div><div id="bar"><div></div></div>
+  <div class="actions"><button class="btn" id="statusClose">Close</button><button class="btn btn-primary" id="statusRetry">Retry</button></div>
+</div>
+
+<div id="game">
+  <div id="gameBar">
+    <button id="gameExit">&#10005; Exit</button>
+    <button id="gameFs">Fullscreen</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * EMBEDDED builds. build.py fills this with gzip+base64 copies of the
+   * offline client files so the page needs no network at all.
+   * Keys are paths relative to files/, e.g. "1_1UT15/WASM/Tuff_Client_Offline_WASM.html"
+   * ------------------------------------------------------------------ */
+  var EMBEDDED = {/*EMBED*/};
+
+  var DEFAULT_BASE = 'https://dicestack88.github.io/Tuffclient/';
+  var FILE_CANDIDATES = {
+    WASM: ['Tuff_Client_Offline_WASM.html', 'index.html'],
+    JS:   ['Tuff_Client_JS.html', 'index.html']
+  };
+  var ARCHIVE = [
+    ['1_1UT14','WASM'],['1_1UT13','WASM'],['1_1UT12','WASM'],['1_1UT11','WASM'],['1_1UD10','WASM'],
+    ['1_1UT9','WASM'],['1_1UT8','WASM'],['1_1UT7','WASM'],['1_1UT6','WASM'],['1_1UT6','JS'],
+    ['1_1UT5','WASM'],['1_1UT5','JS']
+  ];
+
+  /* safe storage (about:blank / sandboxed frames can throw) */
+  var mem = {};
+  var store = {
+    get: function (k) { try { var v = localStorage.getItem(k); return v === null ? (mem[k] || null) : v; } catch (e) { return mem[k] || null; } },
+    set: function (k, v) { mem[k] = v; try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { delete mem[k]; try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  function getBase() {
+    var b = store.get('tuff.base') || DEFAULT_BASE;
+    return b.replace(/\/*$/, '/');
+  }
+  function fileUrl(rel) { return getBase() + 'files/' + rel; }
+
+  /* ---------------- tabs ---------------- */
+  $$('.nav-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      $$('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+      $$('.section').forEach(function (s) { s.classList.remove('active'); });
+      btn.classList.add('active');
+      $('#' + btn.dataset.section).classList.add('active');
+    });
+  });
+
+  /* ---------------- archive list ---------------- */
+  var list = $('#archiveList');
+  ARCHIVE.forEach(function (a) {
+    var b = document.createElement('button');
+    b.className = 'archive-item';
+    b.dataset.play = a[0] + '/' + a[1] + '/';
+    b.innerHTML = '<span class="version"></span><span class="type"></span>';
+    b.firstChild.textContent = a[0].replace('_', '.');
+    b.lastChild.textContent = a[1];
+    list.appendChild(b);
+  });
+
+  /* ---------------- download links (absolute, so they work from about:blank) ---------------- */
+  function refreshLinks() {
+    $$('a[data-file]').forEach(function (a) {
+      var rel = a.dataset.file;
+      a.href = fileUrl(rel);
+      a.setAttribute('download', rel.split('/').pop());
+    });
+  }
+  refreshLinks();
+
+  /* ---------------- settings ---------------- */
+  $('#baseInput').value = getBase();
+  $('#saveBase').addEventListener('click', function () {
+    var v = $('#baseInput').value.trim();
+    if (!/^https?:\/\//i.test(v)) { alert('Base URL must start with http:// or https://'); return; }
+    store.set('tuff.base', v.replace(/\/*$/, '/'));
+    $('#baseInput').value = getBase();
+    refreshLinks();
+  });
+  $('#resetBase').addEventListener('click', function () {
+    store.del('tuff.base'); $('#baseInput').value = getBase(); refreshLinks();
+  });
+  $('#replaceMode').checked = store.get('tuff.replace') === '1';
+  $('#replaceMode').addEventListener('change', function (e) { store.set('tuff.replace', e.target.checked ? '1' : '0'); });
+
+  var embKeys = Object.keys(EMBEDDED);
+  $('#embeddedInfo').textContent = embKeys.length
+    ? 'Embedded in this file: ' + embKeys.join(', ')
+    : 'None. Builds are fetched live from the base URL above. Run build.py to embed them for fully offline use.';
+
+  /* ---------------- status UI ---------------- */
+  var statusEl = $('#status'), msgEl = $('#statusMsg'), barEl = $('#bar > div');
+  var lastTry = null;
+  function showStatus(msg, pct, isErr) {
+    statusEl.classList.add('show');
+    statusEl.classList.toggle('error', !!isErr);
+    msgEl.classList.toggle('err', !!isErr);
+    msgEl.textContent = msg;
+    barEl.style.width = (pct == null ? 100 : pct) + '%';
+    barEl.style.background = isErr ? 'var(--err)' : 'var(--accent)';
+  }
+  function hideStatus() { statusEl.classList.remove('show'); }
+  $('#statusClose').addEventListener('click', hideStatus);
+  $('#statusRetry').addEventListener('click', function () { if (lastTry) launch(lastTry); });
+
+  /* ---------------- loading ---------------- */
+  async function gunzipB64(b64) {
+    var bin = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
+    var stream = new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).text();
+  }
+
+  async function fetchWithProgress(url, label) {
+    var res = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
+    var total = +res.headers.get('content-length') || 0;
+    if (!res.body || !res.body.getReader) { return await res.text(); }
+    var reader = res.body.getReader(), chunks = [], got = 0;
+    for (;;) {
+      var r = await reader.read();
+      if (r.done) break;
+      chunks.push(r.value); got += r.value.length;
+      var mb = (got / 1048576).toFixed(1);
+      showStatus(label + ' \u2014 ' + mb + ' MB' + (total ? ' / ' + (total / 1048576).toFixed(1) + ' MB' : ''),
+                 total ? (got / total * 100) : 60);
+    }
+    return await new Blob(chunks).text();
+  }
+
+  async function loadBuild(dirRel) {
+    var type = /\/JS\/$/.test(dirRel) ? 'JS' : 'WASM';
+    var names = FILE_CANDIDATES[type];
+
+    // 1) embedded copy
+    for (var i = 0; i < names.length; i++) {
+      var key = dirRel + names[i];
+      if (EMBEDDED[key]) {
+        showStatus('Unpacking embedded build\u2026', 70);
+        return { html: await gunzipB64(EMBEDDED[key]), baseDir: null };
+      }
+    }
+    // 2) live fetch
+    var lastErr;
+    for (var j = 0; j < names.length; j++) {
+      var url = fileUrl(dirRel + names[j]);
+      try {
+        showStatus('Downloading ' + names[j] + '\u2026', 5);
+        var html = await fetchWithProgress(url, names[j]);
+        if (html.indexOf('<') === -1) throw new Error('Not an HTML file: ' + url);
+        return { html: html, baseDir: fileUrl(dirRel) };
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('No build found');
+  }
+
+  function prepareHtml(build) {
+    var html = build.html;
+    if (build.baseDir && !/<base[\s>]/i.test(html)) {
+      // make relative asset URLs resolve to the real host (about:blank / blob: have no usable base)
+      var tag = '<base href="' + build.baseDir + '">';
+      html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + tag; })
+                                      : tag + html;
+    }
+    return html;
+  }
+
+  /* ---------------- launching ---------------- */
+  var gameEl = $('#game'), frame = null, blobUrl = null;
+
+  function closeGame() {
+    gameEl.classList.remove('show');
+    if (frame) { frame.src = 'about:blank'; frame.remove(); frame = null; }
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+  }
+  $('#gameExit').addEventListener('click', closeGame);
+  $('#gameFs').addEventListener('click', function () {
+    var el = frame || gameEl;
+    (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
+  });
+
+  async function launch(dirRel) {
+    lastTry = dirRel;
+    try {
+      var build = await loadBuild(dirRel);
+      var html = prepareHtml(build);
+      showStatus('Starting\u2026', 100);
+
+      if (store.get('tuff.replace') === '1') {
+        document.open(); document.write(html); document.close();
+        return;
+      }
+
+      closeGame();
+      blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      frame = document.createElement('iframe');
+      frame.setAttribute('allow', 'fullscreen; autoplay; clipboard-read; clipboard-write; pointer-lock; gamepad; keyboard-map; microphone; camera; cross-origin-isolated');
+      frame.setAttribute('allowfullscreen', '');
+      frame.src = blobUrl;
+      gameEl.appendChild(frame);
+      gameEl.classList.add('show');
+      frame.addEventListener('load', function () { hideStatus(); try { frame.contentWindow.focus(); } catch (e) {} });
+      setTimeout(hideStatus, 4000);
+    } catch (err) {
+      console.error(err);
+      showStatus('Could not load build: ' + (err && err.message ? err.message : err) +
+        '. Check your connection or the Base URL in Settings.', 100, true);
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-play]');
+    if (t) { e.preventDefault(); launch(t.dataset.play); }
+  });
+})();
+</script>
+</body>
+</html>
